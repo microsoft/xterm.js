@@ -3,10 +3,10 @@
  * @license MIT
  */
 
-import { DIM_OPACITY, IGlyphIdentifier, DEFAULT_COLOR } from './Types';
-import { CHAR_ATLAS_CELL_SPACING, ICharAtlasConfig } from '../../shared/atlas/Types';
-import { generateStaticCharAtlasTexture } from '../../shared/atlas/CharAtlasGenerator';
+import { DIM_OPACITY, IGlyphIdentifier, DEFAULT_COLOR, ICharAtlasConfig, CHAR_ATLAS_CELL_SPACING } from './Types';
+import { generateStaticCharAtlasTexture } from './CharAtlasGenerator';
 import BaseCharAtlas from './BaseCharAtlas';
+import { is256Color } from './CharAtlasUtils';
 
 export default class StaticCharAtlas extends BaseCharAtlas {
   private _texture: HTMLCanvasElement | ImageBitmap;
@@ -58,7 +58,7 @@ export default class StaticCharAtlas extends BaseCharAtlas {
     }
 
     let colorIndex = 0;
-    if (glyph.fg < DEFAULT_COLOR) {
+    if (is256Color(glyph.fg)) {
       colorIndex = 2 + glyph.fg + (glyph.bold ? 16 : 0);
     } else if (glyph.fg === DEFAULT_COLOR) {
       // If default color and bold

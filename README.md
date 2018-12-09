@@ -171,6 +171,8 @@ computational environment for Jupyter, supporting interactive data science and s
 - [**SSH Web Client**](https://github.com/roke22/PHP-SSH2-Web-Client): SSH Web Client with PHP.
 - [**Shellvault**](https://www.shellvault.io): The cloud-based SSH terminal you can access from anywhere.
 - [**Juno**](http://junolab.org/): A flexible Julia IDE, based on Atom.
+- [**webssh**](https://github.com/huashengdun/webssh): Web based ssh client.
+- [**info-beamer hosted**](https://info-beamer.com): Uses Xterm.js to manage digital signage devices from the web dashboard.
 
 [And much more...](https://github.com/xtermjs/xterm.js/network/dependents)
 
