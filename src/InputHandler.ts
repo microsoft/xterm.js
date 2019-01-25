@@ -12,6 +12,7 @@ import { FLAGS } from './renderer/Types';
 import { wcwidth } from './CharWidth';
 import { EscapeSequenceParser } from './EscapeSequenceParser';
 import { ICharset } from './core/Types';
+import { IDisposable } from 'xterm';
 import { Disposable } from './common/Lifecycle';
 
 /**
@@ -442,6 +443,13 @@ export class InputHandler extends Disposable implements IInputHandler {
       }
     }
     this._terminal.updateRange(buffer.y);
+  }
+
+  addCsiHandler(flag: string, callback: (params: number[], collect: string) => boolean): IDisposable {
+    return this._parser.addCsiHandler(flag, callback);
+  }
+  addOscHandler(ident: number, callback: (data: string) => boolean): IDisposable {
+    return this._parser.addOscHandler(ident, callback);
   }
 
   /**
@@ -1283,7 +1291,9 @@ export class InputHandler extends Disposable implements IInputHandler {
           this._terminal.vt200Mouse = params[0] === 1000;
           this._terminal.normalMouse = params[0] > 1000;
           this._terminal.mouseEvents = true;
-          this._terminal.element.classList.add('enable-mouse-events');
+          if (this._terminal.element) {
+            this._terminal.element.classList.add('enable-mouse-events');
+          }
           this._terminal.selectionManager.disable();
           this._terminal.log('Binding to mouse events.');
           break;
@@ -1471,7 +1481,9 @@ export class InputHandler extends Disposable implements IInputHandler {
           this._terminal.vt200Mouse = false;
           this._terminal.normalMouse = false;
           this._terminal.mouseEvents = false;
-          this._terminal.element.classList.remove('enable-mouse-events');
+          if (this._terminal.element) {
+            this._terminal.element.classList.remove('enable-mouse-events');
+          }
           this._terminal.selectionManager.enable();
           break;
         case 1004: // send focusin/focusout events
