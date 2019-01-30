@@ -3,10 +3,10 @@
  * @license MIT
  */
 
+import { FILL_CHAR_DATA } from './Buffer';
 import { BufferLine } from './BufferLine';
 import { CircularList, IDeleteEvent } from './common/CircularList';
 import { IBufferLine } from './Types';
-import { FILL_CHAR_DATA } from './Buffer';
 
 export interface INewLayoutResult {
   layout: number[];
@@ -19,7 +19,7 @@ export interface INewLayoutResult {
  * @param lines The buffer lines.
  * @param newCols The columns after resize.
  */
-export function reflowLargerGetLinesToRemove(lines: CircularList<IBufferLine>, newCols: number): number[] {
+export function reflowLargerGetLinesToRemove(lines: CircularList<IBufferLine>, newCols: number, bufferY: number): number[] {
   // Gather all BufferLines that need to be removed from the Buffer here so that they can be
   // batched up and only committed once
   const toRemove: number[] = [];
@@ -37,6 +37,13 @@ export function reflowLargerGetLinesToRemove(lines: CircularList<IBufferLine>, n
     while (i < lines.length && nextLine.isWrapped) {
       wrappedLines.push(nextLine);
       nextLine = lines.get(++i) as BufferLine;
+    }
+
+    // If these lines contain the cursor don't touch them, the program will handle fixing up wrapped
+    // lines with the cursor
+    if (bufferY >= y && bufferY <= i) {
+      y += wrappedLines.length - 1;
+      continue;
     }
 
     // Copy buffer data to new locations
