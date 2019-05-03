@@ -168,9 +168,9 @@ export class DomRenderer extends EventEmitter implements IRenderer {
     // Blink animation
     styles +=
         `@keyframes blink {` +
-        ` 0 % { opacity: 1.0; }` +
+        ` 0% { opacity: 1.0; }` +
         ` 50% { opacity: 0.0; }` +
-        ` 100 % { opacity: 1.0; }` +
+        ` 100% { opacity: 1.0; }` +
         `}`;
     // Cursor
     styles +=
