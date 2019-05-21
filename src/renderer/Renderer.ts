@@ -6,49 +6,33 @@
 import { TextRenderLayer } from './TextRenderLayer';
 import { SelectionRenderLayer } from './SelectionRenderLayer';
 import { CursorRenderLayer } from './CursorRenderLayer';
-import { ColorManager } from './ColorManager';
-import { IRenderLayer, IColorSet, IRenderer, IRenderDimensions, ICharacterJoinerRegistry } from './Types';
+import { IRenderLayer, IRenderer, IRenderDimensions, ICharacterJoinerRegistry } from './Types';
 import { ITerminal, CharacterJoinerHandler } from '../Types';
 import { LinkRenderLayer } from './LinkRenderLayer';
-import { RenderDebouncer } from '../ui/RenderDebouncer';
-import { ScreenDprMonitor } from '../ui/ScreenDprMonitor';
-import { ITheme } from 'xterm';
 import { CharacterJoinerRegistry } from '../renderer/CharacterJoinerRegistry';
-import { EventEmitter2, IEvent } from '../common/EventEmitter2';
 import { Disposable } from '../common/Lifecycle';
+import { IColorSet } from '../ui/Types';
 
 export class Renderer extends Disposable implements IRenderer {
-  private _renderDebouncer: RenderDebouncer;
-
   private _renderLayers: IRenderLayer[];
   private _devicePixelRatio: number;
-  private _screenDprMonitor: ScreenDprMonitor;
-  private _isPaused: boolean = false;
-  private _needsFullRefresh: boolean = false;
   private _characterJoinerRegistry: ICharacterJoinerRegistry;
 
-  public colorManager: ColorManager;
   public dimensions: IRenderDimensions;
 
-  private _onCanvasResize = new EventEmitter2<{ width: number, height: number }>();
-  public get onCanvasResize(): IEvent<{ width: number, height: number }> { return this._onCanvasResize.event; }
-  private _onRender = new EventEmitter2<{ start: number, end: number }>();
-  public get onRender(): IEvent<{ start: number, end: number }> { return this._onRender.event; }
-
-  constructor(private _terminal: ITerminal, theme: ITheme) {
+  constructor(
+    private _terminal: ITerminal,
+    private _colors: IColorSet
+  ) {
     super();
     const allowTransparency = this._terminal.options.allowTransparency;
-    this.colorManager = new ColorManager(document, allowTransparency);
     this._characterJoinerRegistry = new CharacterJoinerRegistry(_terminal);
-    if (theme) {
-      this.colorManager.setTheme(theme);
-    }
 
     this._renderLayers = [
-      new TextRenderLayer(this._terminal.screenElement, 0, this.colorManager.colors, this._characterJoinerRegistry, allowTransparency),
-      new SelectionRenderLayer(this._terminal.screenElement, 1, this.colorManager.colors),
-      new LinkRenderLayer(this._terminal.screenElement, 2, this.colorManager.colors, this._terminal),
-      new CursorRenderLayer(this._terminal.screenElement, 3, this.colorManager.colors)
+      new TextRenderLayer(this._terminal.screenElement, 0, this._colors, this._characterJoinerRegistry, allowTransparency),
+      new SelectionRenderLayer(this._terminal.screenElement, 1, this._colors),
+      new LinkRenderLayer(this._terminal.screenElement, 2, this._colors, this._terminal),
+      new CursorRenderLayer(this._terminal.screenElement, 3, this._colors)
     ];
     this.dimensions = {
       scaledCharWidth: null,
@@ -67,19 +51,6 @@ export class Renderer extends Disposable implements IRenderer {
     this._devicePixelRatio = window.devicePixelRatio;
     this._updateDimensions();
     this.onOptionsChanged();
-
-    this._renderDebouncer = new RenderDebouncer(this._renderRows.bind(this));
-    this._screenDprMonitor = new ScreenDprMonitor();
-    this._screenDprMonitor.setListener(() => this.onWindowResize(window.devicePixelRatio));
-    this.register(this._screenDprMonitor);
-
-    // Detect whether IntersectionObserver is detected and enable renderer pause
-    // and resume based on terminal visibility if so
-    if ('IntersectionObserver' in window) {
-      const observer = new IntersectionObserver(e => this.onIntersectionChange(e[e.length - 1]), { threshold: 0 });
-      observer.observe(this._terminal.element);
-      this.register({ dispose: () => observer.disconnect() });
-    }
   }
 
   public dispose(): void {
@@ -87,39 +58,23 @@ export class Renderer extends Disposable implements IRenderer {
     this._renderLayers.forEach(l => l.dispose());
   }
 
-  public onIntersectionChange(entry: IntersectionObserverEntry): void {
-    this._isPaused = entry.intersectionRatio === 0;
-    if (!this._isPaused && this._needsFullRefresh) {
-      this._terminal.refresh(0, this._terminal.rows - 1);
-      this._needsFullRefresh = false;
-    }
-  }
-
-  public onWindowResize(devicePixelRatio: number): void {
+  public onDevicePixelRatioChange(): void {
     // If the device pixel ratio changed, the char atlas needs to be regenerated
     // and the terminal needs to refreshed
-    if (this._devicePixelRatio !== devicePixelRatio) {
-      this._devicePixelRatio = devicePixelRatio;
+    if (this._devicePixelRatio !== window.devicePixelRatio) {
+      this._devicePixelRatio = window.devicePixelRatio;
       this.onResize(this._terminal.cols, this._terminal.rows);
     }
   }
 
-  public setTheme(theme: ITheme): IColorSet {
-    this.colorManager.setTheme(theme);
+  public setColors(colors: IColorSet): void {
+    this._colors = colors;
 
     // Clear layers and force a full render
     this._renderLayers.forEach(l => {
-      l.onThemeChanged(this._terminal, this.colorManager.colors);
+      l.setColors(this._terminal, this._colors);
       l.reset(this._terminal);
     });
-
-    if (this._isPaused) {
-      this._needsFullRefresh = true;
-    } else {
-      this._terminal.refresh(0, this._terminal.rows - 1);
-    }
-
-    return this.colorManager.colors;
   }
 
   public onResize(cols: number, rows: number): void {
@@ -129,21 +84,9 @@ export class Renderer extends Disposable implements IRenderer {
     // Resize all render layers
     this._renderLayers.forEach(l => l.resize(this._terminal, this.dimensions));
 
-    // Force a refresh
-    if (this._isPaused) {
-      this._needsFullRefresh = true;
-    } else {
-      this._terminal.refresh(0, this._terminal.rows - 1);
-    }
-
     // Resize the screen
     this._terminal.screenElement.style.width = `${this.dimensions.canvasWidth}px`;
     this._terminal.screenElement.style.height = `${this.dimensions.canvasHeight}px`;
-
-    this._onCanvasResize.fire({
-      width: this.dimensions.canvasWidth,
-      height: this.dimensions.canvasHeight
-    });
   }
 
   public onCharSizeChanged(): void {
@@ -167,7 +110,6 @@ export class Renderer extends Disposable implements IRenderer {
   }
 
   public onOptionsChanged(): void {
-    this.colorManager.allowTransparency = this._terminal.options.allowTransparency;
     this._runOperation(l => l.onOptionsChanged(this._terminal));
   }
 
@@ -176,34 +118,15 @@ export class Renderer extends Disposable implements IRenderer {
   }
 
   private _runOperation(operation: (layer: IRenderLayer) => void): void {
-    if (this._isPaused) {
-      this._needsFullRefresh = true;
-    } else {
-      this._renderLayers.forEach(l => operation(l));
-    }
-  }
-
-  /**
-   * Queues a refresh between two rows (inclusive), to be done on next animation
-   * frame.
-   * @param start The start row.
-   * @param end The end row.
-   */
-  public refreshRows(start: number, end: number): void {
-    if (this._isPaused) {
-      this._needsFullRefresh = true;
-      return;
-    }
-    this._renderDebouncer.refresh(start, end, this._terminal.rows);
+    this._renderLayers.forEach(l => operation(l));
   }
 
   /**
    * Performs the refresh loop callback, calling refresh only if a refresh is
    * necessary before queueing up the next one.
    */
-  private _renderRows(start: number, end: number): void {
+  public renderRows(start: number, end: number): void {
     this._renderLayers.forEach(l => l.onGridChanged(this._terminal, start, end));
-    this._onRender.fire({ start, end });
   }
 
   /**

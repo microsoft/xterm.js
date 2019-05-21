@@ -14,9 +14,10 @@ let page: puppeteer.Page;
 const width = 800;
 const height = 600;
 
-describe('API Integration Tests', () => {
+describe('API Integration Tests', function(): void {
+  this.timeout(10000);
+
   before(async function(): Promise<any> {
-    this.timeout(10000);
     browser = await puppeteer.launch({
       headless: process.argv.indexOf('--headless') !== -1,
       slowMo: 80,
@@ -35,14 +36,12 @@ describe('API Integration Tests', () => {
   });
 
   it('Default options', async function(): Promise<any> {
-    this.timeout(10000);
     await openTerminal();
     assert.equal(await page.evaluate(`window.term.cols`), 80);
     assert.equal(await page.evaluate(`window.term.rows`), 24);
   });
 
   it('write', async function(): Promise<any> {
-    this.timeout(10000);
     await openTerminal();
     await page.evaluate(`
       window.term.write('foo');
@@ -53,7 +52,6 @@ describe('API Integration Tests', () => {
   });
 
   it('writeln', async function(): Promise<any> {
-    this.timeout(10000);
     await openTerminal();
     await page.evaluate(`
       window.term.writeln('foo');
@@ -66,7 +64,6 @@ describe('API Integration Tests', () => {
   });
 
   it('writeUtf8', async function(): Promise<any> {
-    this.timeout(10000);
     await openTerminal();
     await page.evaluate(`
       // foo
@@ -80,7 +77,6 @@ describe('API Integration Tests', () => {
   });
 
   it('clear', async function(): Promise<any> {
-    this.timeout(10000);
     await openTerminal({ rows: 5 });
     await page.evaluate(`
       window.term.write('test0');
@@ -97,15 +93,63 @@ describe('API Integration Tests', () => {
   });
 
   it('getOption, setOption', async function(): Promise<any> {
-    this.timeout(10000);
     await openTerminal();
     assert.equal(await page.evaluate(`window.term.getOption('rendererType')`), 'canvas');
     await page.evaluate(`window.term.setOption('rendererType', 'dom')`);
     assert.equal(await page.evaluate(`window.term.getOption('rendererType')`), 'dom');
   });
 
+  describe('renderer', () => {
+    it('foreground', async function(): Promise<any> {
+      await openTerminal({ rendererType: 'dom' });
+      await page.evaluate(`window.term.write('\\x1b[30m0\\x1b[31m1\\x1b[32m2\\x1b[33m3\\x1b[34m4\\x1b[35m5\\x1b[36m6\\x1b[37m7')`);
+      assert.deepEqual(await page.evaluate(`
+        [
+          document.querySelector('.xterm-rows > :nth-child(1) > :nth-child(1)').className,
+          document.querySelector('.xterm-rows > :nth-child(1) > :nth-child(2)').className,
+          document.querySelector('.xterm-rows > :nth-child(1) > :nth-child(3)').className,
+          document.querySelector('.xterm-rows > :nth-child(1) > :nth-child(4)').className,
+          document.querySelector('.xterm-rows > :nth-child(1) > :nth-child(5)').className,
+          document.querySelector('.xterm-rows > :nth-child(1) > :nth-child(6)').className,
+          document.querySelector('.xterm-rows > :nth-child(1) > :nth-child(7)').className
+        ]
+      `), [
+        'xterm-fg-0',
+        'xterm-fg-1',
+        'xterm-fg-2',
+        'xterm-fg-3',
+        'xterm-fg-4',
+        'xterm-fg-5',
+        'xterm-fg-6'
+      ]);
+    });
+
+    it('background', async function(): Promise<any> {
+      await openTerminal({ rendererType: 'dom' });
+      await page.evaluate(`window.term.write('\\x1b[40m0\\x1b[41m1\\x1b[42m2\\x1b[43m3\\x1b[44m4\\x1b[45m5\\x1b[46m6\\x1b[47m7')`);
+      assert.deepEqual(await page.evaluate(`
+        [
+          document.querySelector('.xterm-rows > :nth-child(1) > :nth-child(1)').className,
+          document.querySelector('.xterm-rows > :nth-child(1) > :nth-child(2)').className,
+          document.querySelector('.xterm-rows > :nth-child(1) > :nth-child(3)').className,
+          document.querySelector('.xterm-rows > :nth-child(1) > :nth-child(4)').className,
+          document.querySelector('.xterm-rows > :nth-child(1) > :nth-child(5)').className,
+          document.querySelector('.xterm-rows > :nth-child(1) > :nth-child(6)').className,
+          document.querySelector('.xterm-rows > :nth-child(1) > :nth-child(7)').className
+        ]
+      `), [
+        'xterm-bg-0',
+        'xterm-bg-1',
+        'xterm-bg-2',
+        'xterm-bg-3',
+        'xterm-bg-4',
+        'xterm-bg-5',
+        'xterm-bg-6'
+      ]);
+    });
+  });
+
   it('selection', async function(): Promise<any> {
-    this.timeout(10000);
     await openTerminal({ rows: 5, cols: 5 });
     await page.evaluate(`window.term.write('\\n\\nfoo\\n\\n\\rbar\\n\\n\\rbaz')`);
     assert.equal(await page.evaluate(`window.term.hasSelection()`), false);
@@ -126,7 +170,6 @@ describe('API Integration Tests', () => {
   });
 
   it('focus, blur', async function(): Promise<any> {
-    this.timeout(10000);
     await openTerminal();
     assert.equal(await page.evaluate(`document.activeElement.className`), '');
     await page.evaluate(`window.term.focus()`);
@@ -137,7 +180,6 @@ describe('API Integration Tests', () => {
 
   describe('loadAddon', () => {
     it('constructor', async function(): Promise<any> {
-      this.timeout(10000);
       await openTerminal({ cols: 5 });
       await page.evaluate(`
         window.cols = 0;
@@ -150,7 +192,6 @@ describe('API Integration Tests', () => {
     });
 
     it('dispose (addon)', async function(): Promise<any> {
-      this.timeout(10000);
       await openTerminal();
       await page.evaluate(`
         window.disposeCalled = false
@@ -166,7 +207,6 @@ describe('API Integration Tests', () => {
     });
 
     it('dispose (terminal)', async function(): Promise<any> {
-      this.timeout(10000);
       await openTerminal();
       await page.evaluate(`
         window.disposeCalled = false
@@ -183,7 +223,6 @@ describe('API Integration Tests', () => {
 
   describe('Events', () => {
     it('onCursorMove', async function(): Promise<any> {
-      this.timeout(10000);
       await openTerminal();
       await page.evaluate(`
         window.callCount = 0;
@@ -196,7 +235,6 @@ describe('API Integration Tests', () => {
     });
 
     it('onData', async function(): Promise<any> {
-      this.timeout(10000);
       await openTerminal();
       await page.evaluate(`
         window.calls = [];
@@ -207,7 +245,6 @@ describe('API Integration Tests', () => {
     });
 
     it('onKey', async function(): Promise<any> {
-      this.timeout(10000);
       await openTerminal();
       await page.evaluate(`
         window.calls = [];
@@ -218,7 +255,6 @@ describe('API Integration Tests', () => {
     });
 
     it('onLineFeed', async function(): Promise<any> {
-      this.timeout(10000);
       await openTerminal();
       await page.evaluate(`
         window.callCount = 0;
@@ -231,7 +267,6 @@ describe('API Integration Tests', () => {
     });
 
     it('onScroll', async function(): Promise<any> {
-      this.timeout(10000);
       await openTerminal({ rows: 5 });
       await page.evaluate(`
         window.calls = [];
@@ -248,7 +283,6 @@ describe('API Integration Tests', () => {
     });
 
     it('onSelectionChange', async function(): Promise<any> {
-      this.timeout(10000);
       await openTerminal();
       await page.evaluate(`
         window.callCount = 0;
@@ -262,7 +296,6 @@ describe('API Integration Tests', () => {
     });
 
     it('onRender', async function(): Promise<any> {
-      this.timeout(10000);
       await openTerminal();
       await page.evaluate(`
         window.calls = [];
@@ -276,7 +309,6 @@ describe('API Integration Tests', () => {
     });
 
     it('onResize', async function(): Promise<any> {
-      this.timeout(10000);
       await openTerminal();
       await page.evaluate(`
         window.calls = [];
@@ -290,7 +322,6 @@ describe('API Integration Tests', () => {
     });
 
     it('onTitleChange', async function(): Promise<any> {
-      this.timeout(10000);
       await openTerminal();
       await page.evaluate(`
         window.calls = [];
@@ -304,7 +335,6 @@ describe('API Integration Tests', () => {
 
   describe('buffer', () => {
     it('cursorX, cursorY', async function(): Promise<any> {
-      this.timeout(10000);
       await openTerminal({ rows: 5, cols: 5 });
       assert.equal(await page.evaluate(`window.term.buffer.cursorX`), 0);
       assert.equal(await page.evaluate(`window.term.buffer.cursorY`), 0);
@@ -326,7 +356,6 @@ describe('API Integration Tests', () => {
     });
 
     it('viewportY', async function(): Promise<any> {
-      this.timeout(10000);
       await openTerminal({ rows: 5 });
       assert.equal(await page.evaluate(`window.term.buffer.viewportY`), 0);
       await page.evaluate(`window.term.write('\\n\\n\\n\\n')`);
@@ -342,7 +371,6 @@ describe('API Integration Tests', () => {
     });
 
     it('baseY', async function(): Promise<any> {
-      this.timeout(10000);
       await openTerminal({ rows: 5 });
       assert.equal(await page.evaluate(`window.term.buffer.baseY`), 0);
       await page.evaluate(`window.term.write('\\n\\n\\n\\n')`);
@@ -358,7 +386,6 @@ describe('API Integration Tests', () => {
     });
 
     it('length', async function(): Promise<any> {
-      this.timeout(10000);
       await openTerminal({ rows: 5 });
       assert.equal(await page.evaluate(`window.term.buffer.length`), 5);
       await page.evaluate(`window.term.write('\\n\\n\\n\\n')`);
@@ -371,14 +398,12 @@ describe('API Integration Tests', () => {
 
     describe('getLine', () => {
       it('invalid index', async function(): Promise<any> {
-        this.timeout(10000);
         await openTerminal({ rows: 5 });
         assert.equal(await page.evaluate(`window.term.buffer.getLine(-1)`), undefined);
         assert.equal(await page.evaluate(`window.term.buffer.getLine(5)`), undefined);
       });
 
       it('isWrapped', async function(): Promise<any> {
-        this.timeout(10000);
         await openTerminal({ cols: 5 });
         assert.equal(await page.evaluate(`window.term.buffer.getLine(0).isWrapped`), false);
         assert.equal(await page.evaluate(`window.term.buffer.getLine(1).isWrapped`), false);
@@ -391,7 +416,6 @@ describe('API Integration Tests', () => {
       });
 
       it('translateToString', async function(): Promise<any> {
-        this.timeout(10000);
         await openTerminal({ cols: 5 });
         assert.equal(await page.evaluate(`window.term.buffer.getLine(0).translateToString()`), '     ');
         assert.equal(await page.evaluate(`window.term.buffer.getLine(0).translateToString(true)`), '');
@@ -407,7 +431,6 @@ describe('API Integration Tests', () => {
       });
 
       it('getCell', async function(): Promise<any> {
-        this.timeout(10000);
         await openTerminal({ cols: 5 });
         assert.equal(await page.evaluate(`window.term.buffer.getLine(0).getCell(-1)`), undefined);
         assert.equal(await page.evaluate(`window.term.buffer.getLine(0).getCell(5)`), undefined);

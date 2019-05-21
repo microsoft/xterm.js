@@ -3,8 +3,7 @@
  * @license MIT
  */
 
-import { IColorManager, IColor, IColorSet } from './Types';
-import { ITheme } from 'xterm';
+import { IColorManager, IColor, IColorSet, ITheme } from './Types';
 
 const DEFAULT_FOREGROUND = fromHex('#ffffff');
 const DEFAULT_BACKGROUND = fromHex('#000000');
@@ -90,7 +89,11 @@ export class ColorManager implements IColorManager {
     const canvas = document.createElement('canvas');
     canvas.width = 1;
     canvas.height = 1;
-    this._ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      throw new Error('Could not get rendering context');
+    }
+    this._ctx = ctx;
     this._ctx.globalCompositeOperation = 'copy';
     this._litmusColor = this._ctx.createLinearGradient(0, 0, 1, 1);
     this.colors = {
@@ -108,7 +111,7 @@ export class ColorManager implements IColorManager {
    * @param theme The  theme to use. If a partial theme is provided then default
    * colors will be used where colors are not defined.
    */
-  public setTheme(theme: ITheme): void {
+  public setTheme(theme: ITheme = {}): void {
     this.colors.foreground = this._parseColor(theme.foreground, DEFAULT_FOREGROUND);
     this.colors.background = this._parseColor(theme.background, DEFAULT_BACKGROUND);
     this.colors.cursor = this._parseColor(theme.cursor, DEFAULT_CURSOR, true);
@@ -133,11 +136,11 @@ export class ColorManager implements IColorManager {
   }
 
   private _parseColor(
-    css: string,
+    css: string | undefined,
     fallback: IColor,
     allowTransparency: boolean = this.allowTransparency
   ): IColor {
-    if (!css) {
+    if (css === undefined) {
       return fallback;
     }
 
